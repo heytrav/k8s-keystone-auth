@@ -1,0 +1,42 @@
+---
+include:
+  - remote: https://gitlab.int.catalystcloud.nz/catalystcloud/gitlab-build-tools/raw/main/templates/docker-setup.gitlab-ci.yml
+
+stages:
+  - template
+  - package
+  - publish
+
+.helm_publish_jobs:
+  image: gitlab.int.catalystcloud.nz:4567/catalystcloud/helm-environment:20230606T015011Z
+  before_script:
+    - export CHART_VERSION=$(git describe --tags)
+  rules:
+    - if: $CI_COMMIT_TAG && $CI_COMMIT_REF_NAME =~ /^\d+\.\d+\.\d+.*$/
+
+
+helm_package:
+  extends: .helm_publish_jobs
+  stage: package
+  script:
+    - helm dependency build ${CI_PROJECT_DIR}
+    - helm package --version ${CHART_VERSION} ${CI_PROJECT_DIR}
+  artifacts:
+    paths:
+      - "${CI_PROJECT_DIR}/k8s-keystone-auth-*.tgz"
+
+publish_chart:
+  extends: .helm_publish_jobs
+  stage: publish
+  script:
+    - >
+      curl --request POST
+      --form chart=@${CI_PROJECT_DIR}/k8s-keystone-auth-${CHART_VERSION}.tgz
+      --user gitlab-ci-token:${CI_JOB_TOKEN}
+      ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/helm/api/stable/charts
+    - >
+      helm push
+      ${CI_PROJECT_DIR}/k8s-keystone-auth-${CHART_VERSION}.tgz
+      oci://internal.oci-registry.nz-por-1.catalystcloud.nz/v2/k8s-keystone-auth/stable
+  dependencies:
+    - helm_package

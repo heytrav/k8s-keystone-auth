@@ -1,0 +1,71 @@
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    component: k8s-keystone-auth
+    tier: control-plane
+    {{ include "k8s-keystone-auth.labels" . | nindent 4 }}
+  name: {{ include "k8s-keystone-auth.fullname" . }}
+  namespace: kube-system
+spec:
+  # The controllers can only have a single active instance.
+  selector:
+    matchLabels:
+      k8s-app: k8s-keystone-auth
+      {{ include "k8s-keystone-auth.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      name: {{ include "k8s-keystone-auth.fullname" . }}
+      namespace: kube-system
+      labels:
+        k8s-app: k8s-keystone-auth
+        {{- include "k8s-keystone-auth.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - ./bin/k8s-keystone-auth
+            - --tls-cert-file
+            - {{ .Values.certDirectory }}/{{ .Values.keystoneTlsCert }}
+            - --tls-private-key-file
+            - {{ .Values.certDirectory }}/{{ .Values.keystoneTlsKey }}
+            - --policy-configmap-name
+            - {{ .Values.policyConfigMapName }}
+            - --keystone-url
+            - {{ include "k8s-keystone-auth.authUrl" . }}
+            - --sync-configmap-name
+            - {{ .Values.syncConfigMapName }}
+            - --keystone-ca-file
+            - /etc/ssl/cert.pem
+            - --listen
+            - {{ .Values.keystoneAuthListenAddress }}
+          volumeMounts:
+            - mountPath: {{ .Values.certDirectory }}
+              name: k8s-certs
+              readOnly: true
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          resources:
+          ports:
+            - containerPort: {{ .Values.service.port }}
+              hostPort: {{ .Values.service.hostPort }}
+              name: {{ .Values.service.name }}
+              protocol: {{ .Values.service.protocol }}
+      hostNetwork: true
+      volumes:
+        - hostPath:
+            path: {{ .Values.certDirectory }}
+            type: DirectoryOrCreate
+          name: k8s-certs
