@@ -5,9 +5,8 @@
 
 
 image:
-  repository: docker.io/k8scloudprovider/k8s-keystone-auth
+  repository: oci-registry.catalystcloud.nz/k8scloudprovider/k8s-keystone-auth
   pullPolicy: IfNotPresent
-  # Overrides the image tag whose default is the chart appVersion.
   tag: v1.26.0
   pullPolicy: Always
 
