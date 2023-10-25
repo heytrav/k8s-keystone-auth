@@ -5,10 +5,10 @@
 replicaCount: 1
 
 image:
-  repository: nginx
+  repository: registry.k8s.io/provider-os/k8s-keystone-auth
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: ""
+  tag: "v1.27.1"
 
 imagePullSecrets: []
 nameOverride: ""
